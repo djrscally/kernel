@@ -243,7 +243,7 @@ static int skl_int3472_register_clock(struct int3472_device *int3472,
 		goto err_put_gpio;
 	}
 
-	int3472->clock.cl = clkdev_create(int3472->clock.clk, "xvclk",
+	int3472->clock.cl = clkdev_create(int3472->clock.clk, NULL,
 					  int3472->sensor_name);
 	if (IS_ERR_OR_NULL(int3472->clock.cl))
 		goto err_unregister_clk;
