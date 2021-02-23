@@ -173,8 +173,6 @@ struct ov5693_device {
 	ktime_t timestamp_t_focus_abs;
 	int vt_pix_clk_freq_mhz;
 	int run_mode;
-	int otp_size;
-	u8 *otp_data;
 	u32 focus;
 	s16 number_of_steps;
 	u8 res;
