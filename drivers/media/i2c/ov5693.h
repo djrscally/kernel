@@ -124,28 +124,20 @@ struct regval_list {
 };
 
 struct ov5693_resolution {
-	u8 *desc;
+	char *desc;
 	const struct ov5693_reg *regs;
 	int res;
 	u32 width;
 	u32 height;
 	int fps;
-	int pix_clk_freq;
 	u16 pixels_per_line;
 	u16 lines_per_frame;
 	u8 bin_factor_x;
 	u8 bin_factor_y;
 	u8 bin_mode;
-	bool used;
 
 	/* Analog crop rectangle. */
 	struct v4l2_rect crop;
-};
-
-struct ov5693_format {
-	u8 *desc;
-	u32 pixelformat;
-	struct ov5693_reg *regs;
 };
 
 /*
@@ -832,8 +824,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 736,
 		.height = 496,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -846,8 +836,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 336,
 		.height = 256,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -860,8 +848,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 368,
 		.height = 304,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -874,8 +860,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 192,
 		.height = 160,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -888,8 +872,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1296,
 		.height = 736,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -902,8 +884,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1296,
 		.height = 976,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 2,
@@ -916,8 +896,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1636,
 		.height = 1096,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 1,
@@ -930,8 +908,6 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1940,
 		.height = 1096,
 		.fps = 30,
-		.pix_clk_freq = 160,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 1,
@@ -943,9 +919,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.desc = "ov5693_5M_30fps",
 		.width = 2592,
 		.height = 1456,
-		.pix_clk_freq = 160,
 		.fps = 30,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 1,
@@ -957,9 +931,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.desc = "ov5693_5M_30fps",
 		.width = 2592,
 		.height = 1944,
-		.pix_clk_freq = 160,
 		.fps = 30,
-		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
 		.bin_factor_x = 1,
