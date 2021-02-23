@@ -148,12 +148,6 @@ struct ov5693_format {
 	struct ov5693_reg *regs;
 };
 
-enum vcm_type {
-	VCM_UNKNOWN,
-	VCM_AD5823,
-	VCM_DW9714,
-};
-
 /*
  * ov5693 device structure.
  */

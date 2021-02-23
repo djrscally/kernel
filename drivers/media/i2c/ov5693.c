@@ -29,7 +29,6 @@
 #include <media/v4l2-fwnode.h>
 
 #include "ov5693.h"
-#include "ad5823.h"
 
 /* Exposure/gain */
 
