@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Support for OmniVision OV5693 1080p HD camera sensor.
- *
- * Copyright (c) 2013 Intel Corporation. All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Adapted from the atomisp-ov5693 driver, with contributions from:
+ * 
+ * Daniel Scally
+ * Fabian Wuthrich
+ * Tsuchiya Yuto
+ * Jordan Hand
+ * Jake Day
  */
 
 #include <linux/acpi.h>
@@ -51,6 +46,8 @@
 #define OV5693_EXPOSURE_CTRL_H(v)		((v & GENMASK(11, 4)) >> 4)
 #define OV5693_EXPOSURE_CTRL_L(v)		((v & GENMASK(3, 0)) << 4)
 #define OV5693_INTEGRATION_TIME_MARGIN		8
+#define OV5693_EXPOSURE_MIN			1
+#define OV5693_EXPOSURE_STEP			1
 
 /* Analogue Gain */
 #define OV5693_GAIN_CTRL_H_REG			0x350A
@@ -60,6 +57,7 @@
 #define OV5693_GAIN_MIN				1
 #define OV5693_GAIN_MAX				127
 #define OV5693_GAIN_DEF				8
+#define OV5693_GAIN_STEP			1
 
 /* Digital Gain */
 #define OV5693_MWB_RED_GAIN_H_REG		0x3400
@@ -71,6 +69,10 @@
 #define OV5693_MWB_GAIN_H_CTRL(v)		((v >> 8) & GENMASK(3, 0))
 #define OV5693_MWB_GAIN_L_CTRL(v)		(v & GENMASK(7, 0))
 #define OV5693_MWB_GAIN_MAX			0x0fff
+#define OV5693_DIGITAL_GAIN_MIN			1
+#define OV5693_DIGITAL_GAIN_MAX			4095
+#define OV5693_DIGITAL_GAIN_DEF			1024
+#define OV5693_DIGITAL_GAIN_STEP		1
 
 /* Timing and Format */
 #define OV5693_CROP_START_X_H_REG		0x3800
@@ -133,10 +135,6 @@
 #define OV5693_FORMAT1_VBIN_EN			BIT(0)
 #define OV5693_FORMAT2_REG			0x3821
 #define OV5693_FORMAT2_HDR_EN			BIT(7)
-#define OV5693_FORMAT2_HSYNC_EN			BIT(6)
-#define OV5693_FORMAT2_FST_VBIN_EN		BIT(5)
-#define OV5693_FORMAT2_FST_HBIN_EN		BIT(4)
-#define OV5693_FORMAT2_ISP_HORZ_VAR2_EN		BIT(3)
 #define OV5693_FORMAT2_FLIP_HORZ_ISP_EN		BIT(2)
 #define OV5693_FORMAT2_FLIP_HORZ_SENSOR_EN	BIT(1)
 #define OV5693_FORMAT2_HBIN_EN			BIT(0)
@@ -156,7 +154,6 @@
 #define OV5693_TEST_PATTERN_REG			0x5e00
 #define OV5693_TEST_PATTERN_ENABLE		BIT(7)
 #define OV5693_TEST_PATTERN_ROLLING		BIT(6)
-#define OV5693_TEST_PATTERN_MASK		GENMASK(1, 0)
 #define OV5693_TEST_PATTERN_RANDOM		0x01
 #define OV5693_TEST_PATTERN_BARS		0x00
 
@@ -705,7 +702,7 @@ static int ov5693_digital_gain_configure(struct ov5693_device *ov5693, u32 gain)
 			 OV5693_MWB_GAIN_L_CTRL(gain), &ret);
 	ov5693_write_reg(ov5693, OV5693_MWB_BLUE_GAIN_H_REG,
 			 OV5693_MWB_GAIN_H_CTRL(gain), &ret);
-	ov5693_write_reg(ov5693, OV5693_MWB_RED_GAIN_L_REG,
+	ov5693_write_reg(ov5693, OV5693_MWB_BLUE_GAIN_L_REG,
 			 OV5693_MWB_GAIN_L_CTRL(gain), &ret);
 
 	return ret;
@@ -760,7 +757,8 @@ static int ov5693_s_ctrl(struct v4l2_ctrl *ctrl)
 	/* If VBLANK is altered we need to update exposure to compensate */
 	if (ctrl->id == V4L2_CID_VBLANK) {
 		int exposure_max;
-		exposure_max = ov5693->mode->output_size_y + ctrl->val - 8;
+		exposure_max = ov5693->mode->output_size_y + ctrl->val -
+			       OV5693_INTEGRATION_TIME_MARGIN;
 		__v4l2_ctrl_modify_range(
 			ov5693->ctrls.exposure, ov5693->ctrls.exposure->minimum,
 			exposure_max, ov5693->ctrls.exposure->step,
@@ -1172,7 +1170,7 @@ static int ov5693_set_fmt(struct v4l2_subdev *sd,
 	__v4l2_ctrl_modify_range(ov5693->ctrls.hblank, hblank, hblank, 1,
 				 hblank);
 
-	exposure_def = mode->vts - OV5693_INTEGRATION_TIME_MARGIN;
+	exposure_max = mode->vts - OV5693_INTEGRATION_TIME_MARGIN;
 	__v4l2_ctrl_modify_range(ov5693->ctrls.exposure,
 				 ov5693->ctrls.exposure->minimum, exposure_max,
 				 ov5693->ctrls.exposure->step,
@@ -1350,7 +1348,7 @@ static int ov5693_init_controls(struct ov5693_device *ov5693)
 	int ret;
 
 
-	ret = v4l2_ctrl_handler_init(&ov5693->ctrls.handler, 8);
+	ret = v4l2_ctrl_handler_init(&ov5693->ctrls.handler, 14);
 	if (ret)
 		return ret;
 
@@ -1368,21 +1366,28 @@ static int ov5693_init_controls(struct ov5693_device *ov5693)
 						     OV5693_PIXEL_RATE);
 
 	/* Exposure */
-	exposure_max = ov5693->mode->vts - 8;
+	exposure_max = ov5693->mode->vts - OV5693_INTEGRATION_TIME_MARGIN;
 	ov5693->ctrls.exposure = v4l2_ctrl_new_std(&ov5693->ctrls.handler, ops,
-						   V4L2_CID_EXPOSURE, 1,
-						   exposure_max, 1, exposure_max);
+						   V4L2_CID_EXPOSURE,
+						   OV5693_EXPOSURE_MIN,
+						   exposure_max,
+						   OV5693_EXPOSURE_STEP,
+						   exposure_max);
 
 	/* Gain */
 
 	ov5693->ctrls.analogue_gain = v4l2_ctrl_new_std(&ov5693->ctrls.handler,
 							ops, V4L2_CID_ANALOGUE_GAIN,
 							OV5693_GAIN_MIN,
-							OV5693_GAIN_MAX, 1,
+							OV5693_GAIN_MAX,
+							OV5693_GAIN_STEP,
 							OV5693_GAIN_DEF);
 	ov5693->ctrls.digital_gain = v4l2_ctrl_new_std(&ov5693->ctrls.handler, ops,
-						       V4L2_CID_DIGITAL_GAIN, 1,
-						       4095, 1, 1024);
+						       V4L2_CID_DIGITAL_GAIN,
+						       OV5693_DIGITAL_GAIN_MIN,
+						       OV5693_DIGITAL_GAIN_MAX,
+						       OV5693_DIGITAL_GAIN_STEP,
+						       OV5693_DIGITAL_GAIN_DEF);
 
 	/* Flip */
 
