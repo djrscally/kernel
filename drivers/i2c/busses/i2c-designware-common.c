@@ -269,6 +269,8 @@ int i2c_dw_acpi_configure(struct device *device)
 	i2c_dw_acpi_params(device, "HSCN", &dev->hs_hcnt, &dev->hs_lcnt, &hs_ht);
 	i2c_dw_acpi_params(device, "FMCN", &dev->fs_hcnt, &dev->fs_lcnt, &fs_ht);
 
+	fs_ht = 30;
+
 	switch (t->bus_freq_hz) {
 	case I2C_MAX_STANDARD_MODE_FREQ:
 		dev->sda_hold_time = ss_ht;
