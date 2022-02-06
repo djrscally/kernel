@@ -25,7 +25,17 @@ static struct regulator_consumer_supply int347a_ana_consumer_supplies[] = {
 
 static struct regulator_consumer_supply int347a_vsio_consumer_supplies[] = {
 	REGULATOR_SUPPLY("dovdd", "i2c-INT347A:00"),
+	REGULATOR_SUPPLY("vddd", "i2c-INT347E:00"),
 };
+
+static struct regulator_consumer_supply int347a_aux1_consumer_supplies[] = {
+	REGULATOR_SUPPLY("vdda", "i2c-INT347E:00"),
+};
+
+static struct regulator_consumer_supply int347a_aux2_consumer_supplies[] = {
+	REGULATOR_SUPPLY("vdddo", "i2c-INT347E:00"),
+};
+
 
 static const struct regulator_init_data surface_go_tps68470_core_reg_init_data = {
 	.constraints = {
@@ -60,11 +70,35 @@ static const struct regulator_init_data surface_go_tps68470_vsio_reg_init_data =
 	.consumer_supplies = int347a_vsio_consumer_supplies,
 };
 
+static const struct regulator_init_data surface_go_tps68470_aux1_reg_init_data = {
+	.constraints = {
+		.min_uV = 2815200,
+		.max_uV = 2815200,
+		.apply_uV = 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(int347a_aux1_consumer_supplies),
+	.consumer_supplies = int347a_aux1_consumer_supplies,
+};
+
+static const struct regulator_init_data surface_go_tps68470_aux2_reg_init_data = {
+	.constraints = {
+		.min_uV = 1800600,
+		.max_uV = 1800600,
+		.apply_uV = 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(int347a_aux2_consumer_supplies),
+	.consumer_supplies = int347a_aux2_consumer_supplies,
+};
+
 static const struct tps68470_regulator_platform_data surface_go_tps68470_pdata = {
 	.reg_init_data = {
 		[TPS68470_CORE] = &surface_go_tps68470_core_reg_init_data,
 		[TPS68470_ANA]  = &surface_go_tps68470_ana_reg_init_data,
 		[TPS68470_VSIO] = &surface_go_tps68470_vsio_reg_init_data,
+		[TPS68470_AUX1] = &surface_go_tps68470_aux1_reg_init_data,
+		[TPS68470_AUX2] = &surface_go_tps68470_aux2_reg_init_data,
 	},
 };
 
