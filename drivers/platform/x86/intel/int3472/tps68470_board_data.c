@@ -139,6 +139,80 @@ static const struct int3472_tps68470_board_data surface_go3_tps68470_board_data 
 	}
 };
 
+/* Lenovo Thinkpad X1 */
+
+static struct regulator_consumer_supply thinkpad_x1_int3474_vsio_consumer_supplies[] = {
+	REGULATOR_SUPPLY("dovdd", "i2c-INT3474:01"),
+};
+
+static struct regulator_consumer_supply thinkpad_x1_int3474_aux1_consumer_supplies[] = {
+	REGULATOR_SUPPLY("dvdd", "i2c-INT3474:01"),
+};
+
+static struct regulator_consumer_supply thinkpad_x1_int3474_aux2_consumer_supplies[] = {
+	REGULATOR_SUPPLY("avdd", "i2c-INT3474:01"),
+};
+
+static const struct regulator_init_data thinkpad_x1_tps68470_vsio_reg_init_data = {
+	.constraints = {
+		.min_uV = 1800600,
+		.max_uV = 1800600,
+		.apply_uV = 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(thinkpad_x1_int3474_vsio_consumer_supplies),
+	.consumer_supplies = thinkpad_x1_int3474_vsio_consumer_supplies,
+};
+
+static const struct regulator_init_data thinkpad_x1_tps68470_aux1_reg_init_data = {
+	.constraints = {
+		.min_uV = 1213200,
+		.max_uV = 1213200,
+		.apply_uV = 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(thinkpad_x1_int3474_aux1_consumer_supplies),
+	.consumer_supplies = thinkpad_x1_int3474_aux1_consumer_supplies,
+};
+
+static const struct regulator_init_data thinkpad_x1_tps68470_aux2_reg_init_data = {
+	.constraints = {
+		.min_uV = 1800600,
+		.max_uV = 1800600,
+		.apply_uV = 1,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(thinkpad_x1_int3474_aux2_consumer_supplies),
+	.consumer_supplies = thinkpad_x1_int3474_aux2_consumer_supplies,
+};
+
+static const struct tps68470_regulator_platform_data thinkpad_x1_tps68470_pdata = {
+	.reg_init_data = {
+		[TPS68470_VSIO] = &thinkpad_x1_tps68470_vsio_reg_init_data,
+		[TPS68470_AUX1] = &thinkpad_x1_tps68470_aux1_reg_init_data,
+		[TPS68470_AUX2] = &thinkpad_x1_tps68470_aux2_reg_init_data,
+	}
+};
+
+static struct gpiod_lookup_table thinkpad_x1_int3474_gpios = {
+	.dev_id = "i2c-INT3474:01",
+	.table = {
+		GPIO_LOOKUP("tps68470-gpio", 4, "reset", GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP("tps68470-gpio", 5, "powerdown", GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP("tps68470-gpio", 6, "powerdown2", GPIO_ACTIVE_LOW),
+		{ }
+	}
+};
+
+static const struct int3472_tps68470_board_data thinkpad_x1_tps68470_board_data = {
+	.dev_name = "i2c-INT3474:01",
+	.tps68470_regulator_pdata = &thinkpad_x1_tps68470_pdata,
+	.n_gpiod_lookups = 1,
+	.tps68470_gpio_lookup_tables = {
+		&thinkpad_x1_int3474_gpios,
+	}
+};
+
 static const struct dmi_system_id int3472_tps68470_board_data_table[] = {
 	{
 		.matches = {
@@ -160,6 +234,13 @@ static const struct dmi_system_id int3472_tps68470_board_data_table[] = {
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Go 3"),
 		},
 		.driver_data = (void *)&surface_go3_tps68470_board_data,
+	},
+	{
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "20JCS00C00"),
+		},
+		.driver_data = (void *)&thinkpad_x1_tps68470_board_data,
 	},
 	{ }
 };
