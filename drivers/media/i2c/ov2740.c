@@ -7,6 +7,7 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 #include <linux/nvmem-provider.h>
 #include <linux/regmap.h>
 #include <media/v4l2-ctrls.h>
@@ -322,6 +323,7 @@ static const struct ov2740_mode supported_modes[] = {
 };
 
 struct ov2740 {
+	struct device *dev;
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -347,6 +349,10 @@ struct ov2740 {
 
 	/* True if the device has been identified */
 	bool identified;
+
+	struct regulator *avdd;
+	struct regulator *dvdd;
+	struct regulator *dovdd;
 };
 
 static inline struct ov2740 *to_ov2740(struct v4l2_subdev *subdev)
@@ -1130,6 +1136,26 @@ static int ov2740_register_nvmem(struct i2c_client *client,
 	return 0;
 }
 
+static int ov2740_acquire_regulators(struct ov2740 *ov2740)
+{
+	ov2740->dovdd = devm_regulator_get(ov2740->dev, "dovdd");
+	if (IS_ERR(ov2740->dovdd))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->dovdd),
+				     "failed to acquire DOVDD\n");
+
+	ov2740->avdd = devm_regulator_get(ov2740->dev, "avdd");
+	if (IS_ERR(ov2740->avdd))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->avdd),
+				     "failed to acquire AVDD\n");
+
+	ov2740->dvdd = devm_regulator_get(ov2740->dev, "dvdd");
+	if (IS_ERR(ov2740->dvdd))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->dvdd),
+				     "failed to acquire DVDD\n");
+
+	return 0;
+}
+
 static int ov2740_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1144,6 +1170,13 @@ static int ov2740_probe(struct i2c_client *client)
 	ov2740 = devm_kzalloc(&client->dev, sizeof(*ov2740), GFP_KERNEL);
 	if (!ov2740)
 		return -ENOMEM;
+
+	ov2740->dev = &client->dev;
+
+	ret = ov2740_acquire_regulators(ov2740);
+	if (ret)
+		return dev_err_probe(&client->dev, ret,
+				     "failed to acquire regulators\n");
 
 	v4l2_i2c_subdev_init(&ov2740->sd, client, &ov2740_subdev_ops);
 	full_power = acpi_dev_state_d0(&client->dev);
