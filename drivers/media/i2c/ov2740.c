@@ -870,6 +870,71 @@ exit:
 	return ret;
 }
 
+static int __maybe_unused ov2740_powerdown(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct ov2740 *ov2740 = to_ov2740(sd);
+
+	gpiod_set_value_cansleep(ov2740->powerdown, 1);
+	gpiod_set_value_cansleep(ov2740->powerdown2, 1);
+	gpiod_set_value_cansleep(ov2740->reset, 1);
+
+	regulator_disable(ov2740->dvdd);
+	regulator_disable(ov2740->avdd);
+	regulator_disable(ov2740->dovdd);
+
+	clk_disable_unprepare(ov2740->clk);
+
+	return 0;
+}
+
+static int __maybe_unused ov2740_powerup(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct ov2740 *ov2740 = to_ov2740(sd);
+	int ret;
+
+	gpiod_set_value_cansleep(ov2740->powerdown, 1);
+	gpiod_set_value_cansleep(ov2740->powerdown2, 1);
+	gpiod_set_value_cansleep(ov2740->reset, 1);
+
+	ret = clk_prepare_enable(ov2740->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable external clock\n");
+		goto err_powerdown;
+	}
+
+	ret = regulator_enable(ov2740->dovdd);
+	if (ret) {
+		dev_err(dev, "failed to enable DOVDD\n");
+		goto err_powerdown;
+	}
+
+	ret = regulator_enable(ov2740->avdd);
+	if (ret) {
+		dev_err(dev, "failed to enable AVDD\n");
+		goto err_powerdown;
+	}
+
+	ret = regulator_enable(ov2740->dvdd);
+	if (ret) {
+		dev_err(dev, "failed to enable DVDD\n");
+		goto err_powerdown;
+	}
+
+	gpiod_set_value_cansleep(ov2740->powerdown, 0);
+	gpiod_set_value_cansleep(ov2740->powerdown2, 0);
+	gpiod_set_value_cansleep(ov2740->reset, 0);
+
+	usleep_range(4000, 8000);
+
+	return 0;
+
+err_powerdown:
+	ov2740_powerdown(dev);
+	return ret;
+}
+
 static int ov2740_set_format(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_format *fmt)
@@ -1056,6 +1121,7 @@ static void ov2740_remove(struct i2c_client *client)
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 	pm_runtime_disable(&client->dev);
+	pm_runtime_set_suspended(&client->dev);
 	mutex_destroy(&ov2740->mutex);
 }
 
@@ -1236,9 +1302,16 @@ static int ov2740_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&ov2740->sd, client, &ov2740_subdev_ops);
 	full_power = acpi_dev_state_d0(&client->dev);
 	if (full_power) {
-		ret = ov2740_identify_module(ov2740);
+		ret = ov2740_powerup(ov2740->dev);
 		if (ret)
-			return dev_err_probe(dev, ret, "failed to find sensor\n");
+			return dev_err_probe(dev, ret,
+					     "failed to powerup sensor\n");
+
+		ret = ov2740_identify_module(ov2740);
+		if (ret) {
+			dev_err(dev, "failed to find sensor\n");
+			goto err_powerdown;
+		}
 	}
 
 	mutex_init(&ov2740->mutex);
@@ -1285,10 +1358,16 @@ probe_error_v4l2_ctrl_handler_free:
 	v4l2_ctrl_handler_free(ov2740->sd.ctrl_handler);
 	mutex_destroy(&ov2740->mutex);
 
+err_powerdown:
+	ov2740_powerdown(&client->dev);
+
 	return ret;
 }
 
-static DEFINE_SIMPLE_DEV_PM_OPS(ov2740_pm_ops, ov2740_suspend, ov2740_resume);
+static const struct dev_pm_ops ov2740_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(ov2740_suspend, ov2740_resume)
+	SET_RUNTIME_PM_OPS(ov2740_powerdown, ov2740_powerup, NULL)
+};
 
 static const struct acpi_device_id ov2740_acpi_ids[] = {
 	{"INT3474"},
