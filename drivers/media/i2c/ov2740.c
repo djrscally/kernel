@@ -355,6 +355,10 @@ struct ov2740 {
 	struct regulator *dvdd;
 	struct regulator *dovdd;
 
+	struct gpio_desc *reset;
+	struct gpio_desc *powerdown;
+	struct gpio_desc *powerdown2;
+
 	struct clk *clk;
 };
 
@@ -1149,6 +1153,26 @@ static int ov2740_acquire_regulators(struct ov2740 *ov2740)
 	return 0;
 }
 
+static int ov2740_acquire_gpios(struct ov2740 *ov2740)
+{
+	ov2740->reset = devm_gpiod_get_optional(ov2740->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(ov2740->reset))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->reset),
+							 "error fetching reset GPIO\n");
+
+	ov2740->powerdown = devm_gpiod_get_optional(ov2740->dev, "powerdown", GPIOD_OUT_HIGH);
+	if (IS_ERR(ov2740->powerdown))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->powerdown),
+							 "error fetching powerdown GPIO\n");
+
+	ov2740->powerdown2 = devm_gpiod_get_optional(ov2740->dev, "powerdown2", GPIOD_OUT_HIGH);
+	if (IS_ERR(ov2740->powerdown2))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->powerdown2),
+							 "error fetching powerdown2 GPIO\n");
+
+	return 0;
+}
+
 static int ov2740_acquire_clock(struct ov2740 *ov2740)
 {
 	struct fwnode_handle *fwnode = dev_fwnode(ov2740->dev);
@@ -1202,6 +1226,10 @@ static int ov2740_probe(struct i2c_client *client)
 				     "failed to acquire regulators\n");
 
 	ret = ov2740_acquire_clock(ov2740);
+	if (ret)
+		return ret;
+
+	ret = ov2740_acquire_gpios(ov2740);
 	if (ret)
 		return ret;
 
