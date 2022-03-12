@@ -3,6 +3,7 @@
 
 #include <asm/unaligned.h>
 #include <linux/acpi.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
@@ -353,6 +354,8 @@ struct ov2740 {
 	struct regulator *avdd;
 	struct regulator *dvdd;
 	struct regulator *dovdd;
+
+	struct clk *clk;
 };
 
 static inline struct ov2740 *to_ov2740(struct v4l2_subdev *subdev)
@@ -995,18 +998,8 @@ static int ov2740_check_hwcfg(struct device *dev)
 	struct v4l2_fwnode_endpoint bus_cfg = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
-	u32 mclk;
 	int ret;
 	unsigned int i, j;
-
-	ret = fwnode_property_read_u32(fwnode, "clock-frequency", &mclk);
-	if (ret)
-		return ret;
-
-	if (mclk != OV2740_MCLK)
-		return dev_err_probe(dev, -EINVAL,
-				     "external clock %d is not supported\n",
-				     mclk);
 
 	ep = fwnode_graph_get_next_endpoint(fwnode, NULL);
 	if (!ep)
@@ -1156,6 +1149,36 @@ static int ov2740_acquire_regulators(struct ov2740 *ov2740)
 	return 0;
 }
 
+static int ov2740_acquire_clock(struct ov2740 *ov2740)
+{
+	struct fwnode_handle *fwnode = dev_fwnode(ov2740->dev);
+	u32 rate;
+	int ret;
+
+	ov2740->clk = devm_clk_get_optional(ov2740->dev, NULL);
+	if (IS_ERR(ov2740->clk))
+		return dev_err_probe(ov2740->dev, PTR_ERR(ov2740->clk),
+				     "error acquiring clock\n");
+
+	ret = fwnode_property_read_u32(fwnode, "clock-frequency", &rate);
+
+	if (!ret && ov2740->clk) {
+		ret = clk_set_rate(ov2740->clk, rate);
+		if (ret)
+			return dev_err_probe(ov2740->dev, ret,
+					     "error setting clock rate\n");
+	} else if (ret && !ov2740->clk) {
+		return dev_err_probe(ov2740->dev, ret, "invalid clk config\n");
+	}
+
+	if (rate != OV2740_MCLK)
+		return dev_err_probe(ov2740->dev, -EINVAL,
+				     "external clock %d is not supported",
+				     rate);
+
+	return 0;
+}
+
 static int ov2740_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1177,6 +1200,10 @@ static int ov2740_probe(struct i2c_client *client)
 	if (ret)
 		return dev_err_probe(&client->dev, ret,
 				     "failed to acquire regulators\n");
+
+	ret = ov2740_acquire_clock(ov2740);
+	if (ret)
+		return ret;
 
 	v4l2_i2c_subdev_init(&ov2740->sd, client, &ov2740_subdev_ops);
 	full_power = acpi_dev_state_d0(&client->dev);
