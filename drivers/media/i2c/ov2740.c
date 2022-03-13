@@ -78,6 +78,16 @@
 /* OTP registers from sensor */
 #define OV2740_REG_OTP_CUSTOMER		0x7010
 
+/* Pixel array limits */
+#define OV2740_NATIVE_WIDTH			1936
+#define OV2740_NATIVE_HEIGHT		1112
+#define OV2740_NATIVE_START_LEFT	0
+#define OV2740_NATIVE_START_TOP		0
+#define OV2740_ACTIVE_WIDTH			1936
+#define OV2740_ACTIVE_HEIGHT		1096
+#define OV2740_ACTIVE_START_TOP		8
+#define OV2740_ACTIVE_START_LEFT	8
+
 struct nvm_data {
 	struct nvmem_device *nvmem;
 	struct regmap *regmap;
@@ -1008,6 +1018,32 @@ static int ov2740_enum_frame_size(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ov2740_get_selection(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state,
+				struct v4l2_subdev_selection *sel)
+{
+	switch (sel->target) {
+	case V4L2_SEL_TGT_NATIVE_SIZE:
+		sel->r.top = OV2740_NATIVE_START_TOP;
+		sel->r.left = OV2740_NATIVE_START_LEFT;
+		sel->r.width = OV2740_NATIVE_WIDTH;
+		sel->r.height = OV2740_NATIVE_HEIGHT;
+		break;
+	case V4L2_SEL_TGT_CROP:
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+		sel->r.top = OV2740_ACTIVE_START_TOP;
+		sel->r.left = OV2740_ACTIVE_START_LEFT;
+		sel->r.width = OV2740_ACTIVE_WIDTH;
+		sel->r.height = OV2740_ACTIVE_HEIGHT;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int ov2740_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct ov2740 *ov2740 = to_ov2740(sd);
@@ -1029,6 +1065,7 @@ static const struct v4l2_subdev_pad_ops ov2740_pad_ops = {
 	.get_fmt = ov2740_get_format,
 	.enum_mbus_code = ov2740_enum_mbus_code,
 	.enum_frame_size = ov2740_enum_frame_size,
+	.get_selection = ov2740_get_selection,
 };
 
 static const struct v4l2_subdev_ops ov2740_subdev_ops = {
