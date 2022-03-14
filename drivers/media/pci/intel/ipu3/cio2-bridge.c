@@ -29,6 +29,8 @@ static const struct cio2_sensor_config cio2_supported_sensors[] = {
 	CIO2_SENSOR_CONFIG("INT347E", 1, 319200000),
 	/* Omnivision OV2680 */
 	CIO2_SENSOR_CONFIG("OVTI2680", 0),
+	/* Omnivision OV2740 */
+	CIO2_SENSOR_CONFIG("INT3474", 1, 360000000),
 };
 
 static const struct cio2_property_names prop_names = {
