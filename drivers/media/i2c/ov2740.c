@@ -596,6 +596,7 @@ static const struct v4l2_ctrl_ops ov2740_ctrl_ops = {
 
 static int ov2740_init_controls(struct ov2740 *ov2740)
 {
+	struct v4l2_fwnode_device_properties props;
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	const struct ov2740_mode *cur_mode;
 	s64 exposure_max, h_blank, pixel_rate;
@@ -663,6 +664,15 @@ static int ov2740_init_controls(struct ov2740 *ov2740)
 
 	if (ctrl_hdlr->error)
 		return ctrl_hdlr->error;
+
+	ret = v4l2_fwnode_device_parse(ov2740->dev, &props);
+	if (ret)
+		return ret;
+
+	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &ov2740_ctrl_ops,
+					      &props);
+	if (ret)
+		return ret;
 
 	ov2740->sd.ctrl_handler = ctrl_hdlr;
 
