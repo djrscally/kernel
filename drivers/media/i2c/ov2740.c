@@ -78,6 +78,11 @@
 /* OTP registers from sensor */
 #define OV2740_REG_OTP_CUSTOMER		0x7010
 
+#define OV2740_REG_FORMAT1		0x3820
+#define OV2740_REG_FORMAT2		0x3821
+#define OV2740_VERTICAL_FLIP_MASK	GENMASK(2, 1)
+#define OV2740_HORIZONTAL_FLIP_MASK	GENMASK(2, 1)
+
 /* Pixel array limits */
 #define OV2740_NATIVE_WIDTH			1936
 #define OV2740_NATIVE_HEIGHT		1112
@@ -513,6 +518,38 @@ static int ov2740_test_pattern(struct ov2740 *ov2740, u32 pattern)
 	return ov2740_write_reg(ov2740, OV2740_REG_TEST_PATTERN, 1, pattern);
 }
 
+static int ov2740_horizontal_flip(struct ov2740 *ov2740, bool enable)
+{
+	u32 val;
+	int ret;
+
+	ret = ov2740_read_reg(ov2740, OV2740_REG_FORMAT2, 1, &val);
+	if (ret)
+		return dev_err_probe(ov2740->dev, ret,
+				     "failed to set horz flip\n");
+
+	val &= ~OV2740_HORIZONTAL_FLIP_MASK;
+	val |= enable ? OV2740_HORIZONTAL_FLIP_MASK : 0;
+
+	return ov2740_write_reg(ov2740, OV2740_REG_FORMAT2, 1, val);
+}
+
+static int ov2740_vertical_flip(struct ov2740 *ov2740, bool enable)
+{
+	u32 val;
+	int ret;
+
+	ret = ov2740_read_reg(ov2740, OV2740_REG_FORMAT1, 1, &val);
+	if (ret)
+		return dev_err_probe(ov2740->dev, ret,
+				     "failed to set vert flip\n");
+
+	val &= ~OV2740_VERTICAL_FLIP_MASK;
+	val |= enable ? OV2740_VERTICAL_FLIP_MASK : 0;
+
+	return ov2740_write_reg(ov2740, OV2740_REG_FORMAT1, 1, val);
+}
+
 static int ov2740_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ov2740 *ov2740 = container_of(ctrl->handler,
@@ -559,6 +596,14 @@ static int ov2740_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_TEST_PATTERN:
 		ret = ov2740_test_pattern(ov2740, ctrl->val);
+		break;
+
+	case V4L2_CID_HFLIP:
+		ret = ov2740_horizontal_flip(ov2740, !!ctrl->val);
+		break;
+
+	case V4L2_CID_VFLIP:
+		ret = ov2740_vertical_flip(ov2740, !!ctrl->val);
 		break;
 
 	default:
@@ -636,6 +681,12 @@ static int ov2740_init_controls(struct ov2740 *ov2740)
 				     V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(ov2740_test_pattern_menu) - 1,
 				     0, 0, ov2740_test_pattern_menu);
+
+	v4l2_ctrl_new_std(ctrl_hdlr, &ov2740_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1,
+			  0);
+	v4l2_ctrl_new_std(ctrl_hdlr, &ov2740_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1,
+			  0);
+
 	if (ctrl_hdlr->error) {
 		v4l2_ctrl_handler_free(ctrl_hdlr);
 		return ctrl_hdlr->error;
