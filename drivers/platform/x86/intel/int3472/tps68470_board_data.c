@@ -161,7 +161,8 @@ static const struct int3472_tps68470_board_data surface_go3_tps68470_board_data 
 	.tps68470_regulator_pdata = &surface_go_tps68470_pdata,
 	.n_gpiod_lookups = 1,
 	.tps68470_gpio_lookup_tables = {
-		&surface_go_int347a_gpios
+		&surface_go_int347a_gpios,
+		&surface_go_int347e_gpios,
 	},
 };
 
